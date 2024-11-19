@@ -45,22 +45,25 @@ app.use(express.json());
 function mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, finalOutputPath, callback) {
     // Step 1: Merge image and initial video
     ffmpeg()
-    .input(imagePath)
-    .loop(5) // Show image for 5 seconds
-    .input(videoPath)
-    .input(audioPath) // Add audio input
-    .complexFilter([
-      '[0:v]scale=1280:720[image]', // Scale image if necessary
-      '[1:v]scale=1280:720[video]',
-      '[image][video]concat=n=2:v=1:a=0[outv]', // Concatenate image and video
-    ])
-    .outputOptions([
-      '-map', '[outv]', // Map video
-      '-map', '2:a',    // Map audio from audio input
-      '-c:v', 'libx264', // Set video codec
-      '-c:a', 'aac',     // Set audio codec
-      '-shortest'        // Stop when the shortest stream ends
-    ])
+  .input(imagePath)
+  .loop(5) // Show image for 5 seconds
+  .complexFilter([
+    // Scale the image to fit within 1280x720 while preserving aspect ratio
+    '[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[image]', 
+    // Scale the video to match the same resolution
+    '[1:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[video]',
+    // Concatenate the scaled image and video
+    '[image][video]concat=n=2:v=1:a=0[outv]',
+  ])
+  .input(videoPath)
+  .input(audioPath) // Add audio input
+  .outputOptions([
+    '-map', '[outv]',  // Map the concatenated video
+    '-map', '2:a',     // Map the audio from the audio input
+    '-c:v', 'libx264', // Set video codec
+    '-c:a', 'aac',     // Set audio codec
+    '-shortest',       // Stop when the shortest stream ends
+  ])
       .output(tempOutputPath)
       .on('end', () => {
         console.log('First merge completed, starting second merge...');
@@ -92,8 +95,8 @@ function mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, fin
   
   // Example usage
 //   mergeImageAndVideo(
-//     path.join(__dirname, './assets/img1.jpg'),
-//     path.join(__dirname, './assets/video.mp4'),
+//     path.join(__dirname, './assets/img2.jpg'),
+//     path.join(__dirname, './assets/video1.mp4'),
 //     path.join(__dirname, './assets/audio.mp3'),
 //     path.join(__dirname, './tempOutput.mp4'), // Temporary output file
 //     path.join(__dirname, 'finalOutput.mp4'), // Final output file
@@ -106,13 +109,45 @@ function mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, fin
 //     }
 //   );
 
+const createImageVideo = (image, duration) => {
+    return new Promise((resolve, reject) => {
+      const tempImageVideo = path.join(__dirname, "image_video.mp4");
+      ffmpeg()
+        .input(image)
+        .loop(duration)
+        .outputOptions([
+          "-c:v",
+          "libx264",
+          "-t",
+          duration.toString(),
+          "-pix_fmt",
+          "yuv420p",
+        ])
+        .save(tempImageVideo)
+        .on("end", () => resolve(tempImageVideo))
+        .on("error", (err) => reject(err));
+    });
+  };
+
+  app.get("/create-video", async (req, res) => {
+    const imagePath = './assets/img4.jpg'
+    try {
+      console.log("Creating 5-second video from image...");
+      const imageVideo = await createImageVideo(imagePath, 5);
+      console.log(`Video from image created successfully ${imageVideo}`);
+    } catch (error) {
+      console.error("Error creating video:", error);
+      res.status(500).send("Error creating video");
+    }
+  });
+
 
   // Define the API route
 app.post('/merge', (req, res) => {
     //const { imagePath, videoPath, audioPath } = req.body;
 
     const imagePath = './assets/img.jpg';
-    const videoPath = './assets/video.mp4';
+    const videoPath = './assets/video1.mp4';
     const audioPath = './assets/audio.mp3';
   
     if (!imagePath || !videoPath || !audioPath) {
