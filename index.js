@@ -42,13 +42,13 @@ app.use(express.json());
 //   );
 
 
-function mergeImageAndVideo(imagePath, videoPath, tempOutputPath, finalOutputPath, callback) {
+function mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, finalOutputPath, callback) {
     // Step 1: Merge image and initial video
     ffmpeg()
     .input(imagePath)
     .loop(5) // Show image for 5 seconds
     .input(videoPath)
-    .input('./assets/audio.mp3') // Add audio input
+    .input(audioPath) // Add audio input
     .complexFilter([
       '[0:v]scale=1280:720[image]', // Scale image if necessary
       '[1:v]scale=1280:720[video]',
@@ -91,53 +91,78 @@ function mergeImageAndVideo(imagePath, videoPath, tempOutputPath, finalOutputPat
   }
   
   // Example usage
-  mergeImageAndVideo(
-    path.join(__dirname, './assets/img.jpg'),
-    path.join(__dirname, './assets/video.mp4'),
-    path.join(__dirname, './tempOutput.mp4'), // Temporary output file
-    path.join(__dirname, 'finalOutput.mp4'), // Final output file
-    (err, outputPath) => {
-      if (err) {
-        console.error('Error:', err);
-      } else {
-        console.log('Final merged video created at:', outputPath);
-      }
+//   mergeImageAndVideo(
+//     path.join(__dirname, './assets/img1.jpg'),
+//     path.join(__dirname, './assets/video.mp4'),
+//     path.join(__dirname, './assets/audio.mp3'),
+//     path.join(__dirname, './tempOutput.mp4'), // Temporary output file
+//     path.join(__dirname, 'finalOutput.mp4'), // Final output file
+//     (err, outputPath) => {
+//       if (err) {
+//         console.error('Error:', err);
+//       } else {
+//         console.log('Final merged video created at:', outputPath);
+//       }
+//     }
+//   );
+
+
+  // Define the API route
+app.post('/merge', (req, res) => {
+    //const { imagePath, videoPath, audioPath } = req.body;
+
+    const imagePath = './assets/img.jpg';
+    const videoPath = './assets/video.mp4';
+    const audioPath = './assets/audio.mp3';
+  
+    if (!imagePath || !videoPath || !audioPath) {
+      return res.status(400).json({ error: 'imagePath, videoPath, and audioPath are required!' });
     }
-  );
-
-
-
-
-
-  const createVideo = (imagePath, videoPath, outputPath) => {
-    return new Promise((resolve, reject) => {
-      // First create a short video from the image
-      const tempImageVideo = path.join(__dirname, 'temp_image_video.mp4');
-      ffmpeg(imagePath)
-        .loop(5) // Display image for 5 seconds
-        .fps(30)
-        .output(tempImageVideo)
-        .on('end', () => {
-          // Once image video is created, concatenate with original video
-          ffmpeg()
-            .input(tempImageVideo)
-            .input(videoPath)
-            .outputOptions('-c copy') // Use copy codec for faster processing
-            .on('end', () => {
-              console.log('Combined video created successfully');
-              resolve();
-            })
-            .on('error', (err) => {
-              reject(`Error combining videos: ${err.message}`);
-            })
-            .save(outputPath);
-        })
-        .on('error', (err) => {
-          reject(`Error creating image video: ${err.message}`);
-        })
-        .run();
+  
+    const tempOutputPath = path.join(__dirname, 'tempOutput.mp4');
+    const finalOutputPath = path.join(__dirname, 'finalOutput.mp4');
+  
+    mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, finalOutputPath, (err, outputPath) => {
+      if (err) {
+        console.error('Error merging files:', err);
+        return res.status(500).json({ error: 'Failed to create the video.' });
+      }
+      res.json({ message: 'Video created successfully!', outputPath });
     });
-  };
+  });
+  
+
+
+
+//   const createVideo = (imagePath, videoPath, outputPath) => {
+//     return new Promise((resolve, reject) => {
+//       // First create a short video from the image
+//       const tempImageVideo = path.join(__dirname, 'temp_image_video.mp4');
+//       ffmpeg(imagePath)
+//         .loop(5) // Display image for 5 seconds
+//         .fps(30)
+//         .output(tempImageVideo)
+//         .on('end', () => {
+//           // Once image video is created, concatenate with original video
+//           ffmpeg()
+//             .input(tempImageVideo)
+//             .input(videoPath)
+//             .outputOptions('-c copy') // Use copy codec for faster processing
+//             .on('end', () => {
+//               console.log('Combined video created successfully');
+//               resolve();
+//             })
+//             .on('error', (err) => {
+//               reject(`Error combining videos: ${err.message}`);
+//             })
+//             .save(outputPath);
+//         })
+//         .on('error', (err) => {
+//           reject(`Error creating image video: ${err.message}`);
+//         })
+//         .run();
+//     });
+//   };
   
 //   // Usage
 //   const imagePath = './assets/img.jpg';
@@ -147,11 +172,6 @@ function mergeImageAndVideo(imagePath, videoPath, tempOutputPath, finalOutputPat
 //   createVideo(imagePath, videoPath, outputPath)
 //     .then(() => console.log('Video created successfully'))
 //     .catch((err) => console.error(err));
-
-
-  const first = './assets/video1.mp4';
-  const second = './assets/video2.mp4';
-  const third = 'third_video.mp4';
 
 // ffmpeg({source:first})
 //         .input(second)
