@@ -3,11 +3,14 @@ const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const app = express();
+const multer = require("multer");
 
 // Set the path to the ffmpeg binary
 ffmpeg.setFfmpegPath("C:\\ffmpeg\\ffmpeg.exe");
 
 app.use(express.json());
+
+const upload = multer({ dest: "uploads/" });
 
 
 // function mergeImageAndVideo(imagePath, videoPath, outputPath, callback) {
@@ -109,44 +112,15 @@ function mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, fin
 //     }
 //   );
 
-const createImageVideo = (image, duration) => {
-    return new Promise((resolve, reject) => {
-      const tempImageVideo = path.join(__dirname, "image_video.mp4");
-      ffmpeg()
-        .input(image)
-        .loop(duration)
-        .outputOptions([
-          "-c:v",
-          "libx264",
-          "-t",
-          duration.toString(),
-          "-pix_fmt",
-          "yuv420p",
-        ])
-        .save(tempImageVideo)
-        .on("end", () => resolve(tempImageVideo))
-        .on("error", (err) => reject(err));
-    });
-  };
 
-  app.get("/create-video", async (req, res) => {
-    const imagePath = './assets/img4.jpg'
-    try {
-      console.log("Creating 5-second video from image...");
-      const imageVideo = await createImageVideo(imagePath, 5);
-      console.log(`Video from image created successfully ${imageVideo}`);
-    } catch (error) {
-      console.error("Error creating video:", error);
-      res.status(500).send("Error creating video");
-    }
-  });
 
 
   // Define the API route
-app.post('/merge', (req, res) => {
-    //const { imagePath, videoPath, audioPath } = req.body;
+app.post('/merge',upload.single("image"), (req, res) => {
+    const { doctorId } = req.body;
 
-    const imagePath = './assets/img.jpg';
+    const imagePath = req.file?.path; 
+    //const imagePath = './assets/img.jpg';
     const videoPath = './assets/video1.mp4';
     const audioPath = './assets/audio.mp3';
   
@@ -154,8 +128,8 @@ app.post('/merge', (req, res) => {
       return res.status(400).json({ error: 'imagePath, videoPath, and audioPath are required!' });
     }
   
-    const tempOutputPath = path.join(__dirname, 'tempOutput.mp4');
-    const finalOutputPath = path.join(__dirname, 'finalOutput.mp4');
+    const tempOutputPath = path.join(__dirname,  'tempOutput.mp4');
+    const finalOutputPath = path.join(__dirname, 'Videos', "videos"+doctorId+".mp4");
   
     mergeImageAndVideo(imagePath, videoPath, audioPath, tempOutputPath, finalOutputPath, (err, outputPath) => {
       if (err) {
